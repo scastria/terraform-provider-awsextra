@@ -46,10 +46,10 @@ func Provider() *schema.Provider {
 				ConflictsWith: []string{"profile"},
 			},
 		},
-		ResourcesMap: map[string]*schema.Resource{},
-		DataSourcesMap: map[string]*schema.Resource{
-			"awsextra_ecr_repository": dataSourceECRRepository(),
+		ResourcesMap: map[string]*schema.Resource{
+			"awsextra_ecr_repository": resourceECRRepository(),
 		},
+		DataSourcesMap:       map[string]*schema.Resource{},
 		ConfigureContextFunc: providerConfigure,
 	}
 }

@@ -11,10 +11,18 @@ provider "awsextra" {
   profile = "development"
 }
 
-data "awsextra_ecr_repository" "Repo" {
-  name = "admin"
-}
+resource "awsextra_ecr_repository" "Repo" {
+  name = "shawn_test"
+  image_tag_mutability = "IMMUTABLE"
 
-output "Test" {
-  value = data.awsextra_ecr_repository.Repo.id
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  encryption_configuration {
+    encryption_type = "AES256"
+  }
+
+  force_delete = true
+  use_existing = true
 }
