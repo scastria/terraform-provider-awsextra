@@ -11,65 +11,63 @@ import (
 func Provider() *schema.Provider {
 	return &schema.Provider{
 		Schema: map[string]*schema.Schema{
-			//"workspace": {
-			//	Type:        schema.TypeString,
-			//	Required:    true,
-			//	DefaultFunc: schema.EnvDefaultFunc("BB_WORKSPACE", nil),
-			//},
-			//"access_token": {
-			//	Type:          schema.TypeString,
-			//	Optional:      true,
-			//	Sensitive:     true,
-			//	DefaultFunc:   schema.EnvDefaultFunc("BB_ACCESS_TOKEN", nil),
-			//	ConflictsWith: []string{"client_id", "client_secret"},
-			//},
-			//"client_id": {
-			//	Type:          schema.TypeString,
-			//	Optional:      true,
-			//	DefaultFunc:   schema.EnvDefaultFunc("BB_CLIENT_ID", nil),
-			//	ConflictsWith: []string{"access_token"},
-			//	RequiredWith:  []string{"client_secret"},
-			//},
-			//"client_secret": {
-			//	Type:          schema.TypeString,
-			//	Optional:      true,
-			//	Sensitive:     true,
-			//	DefaultFunc:   schema.EnvDefaultFunc("BB_CLIENT_SECRET", nil),
-			//	ConflictsWith: []string{"access_token"},
-			//	RequiredWith:  []string{"client_id"},
-			//},
-			//"num_retries": {
-			//	Type:        schema.TypeInt,
-			//	Optional:    true,
-			//	DefaultFunc: schema.EnvDefaultFunc("BB_NUM_RETRIES", 3),
-			//},
-			//"retry_delay": {
-			//	Type:        schema.TypeInt,
-			//	Optional:    true,
-			//	DefaultFunc: schema.EnvDefaultFunc("BB_RETRY_DELAY", 30),
-			//},
+			"region": {
+				Type:        schema.TypeString,
+				Required:    true,
+				DefaultFunc: schema.MultiEnvDefaultFunc([]string{"AWS_REGION", "AWS_DEFAULT_REGION"}, nil),
+			},
+			"profile": {
+				Type:          schema.TypeString,
+				Optional:      true,
+				DefaultFunc:   schema.MultiEnvDefaultFunc([]string{"AWS_PROFILE", "AWS_DEFAULT_PROFILE"}, nil),
+				ConflictsWith: []string{"access_key", "secret_key", "token"},
+			},
+			"access_key": {
+				Type:          schema.TypeString,
+				Optional:      true,
+				Sensitive:     true,
+				DefaultFunc:   schema.EnvDefaultFunc("AWS_ACCESS_KEY_ID", nil),
+				ConflictsWith: []string{"profile"},
+				RequiredWith:  []string{"secret_key"},
+			},
+			"secret_key": {
+				Type:          schema.TypeString,
+				Optional:      true,
+				Sensitive:     true,
+				DefaultFunc:   schema.EnvDefaultFunc("AWS_SECRET_ACCESS_KEY", nil),
+				ConflictsWith: []string{"profile"},
+				RequiredWith:  []string{"access_key"},
+			},
+			"token": {
+				Type:          schema.TypeString,
+				Optional:      true,
+				Sensitive:     true,
+				DefaultFunc:   schema.EnvDefaultFunc("AWS_SESSION_TOKEN", nil),
+				ConflictsWith: []string{"profile"},
+			},
 		},
-		ResourcesMap:         map[string]*schema.Resource{},
-		DataSourcesMap:       map[string]*schema.Resource{},
+		ResourcesMap: map[string]*schema.Resource{},
+		DataSourcesMap: map[string]*schema.Resource{
+			"awsextra_ecr_repository": dataSourceECRRepository(),
+		},
 		ConfigureContextFunc: providerConfigure,
 	}
 }
 
 func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
-	//workspace := d.Get("workspace").(string)
-	//accessToken := d.Get("access_token").(string)
-	//clientId := d.Get("client_id").(string)
-	//clientSecret := d.Get("client_secret").(string)
-	//numRetries := d.Get("num_retries").(int)
-	//retryDelay := d.Get("retry_delay").(int)
-	//
-	////Check for valid authentication
-	//if (clientId == "") && (clientSecret == "") && (accessToken == "") {
-	//	return nil, diag.Errorf("You must specify either client_id/client_secret for Client Credentials Authentication or access_token")
-	//}
-	//
+	region := d.Get("region").(string)
+	profile := d.Get("profile").(string)
+	accessKey := d.Get("access_key").(string)
+	secretKey := d.Get("secret_key").(string)
+	token := d.Get("token").(string)
+
+	//Check for valid authentication
+	if (profile == "") && (accessKey == "") && (secretKey == "") && (token == "") {
+		return nil, diag.Errorf("You must specify either profile or access_key/secret_key for authentication")
+	}
+
 	var diags diag.Diagnostics
-	c, err := client.NewClient(ctx)
+	c, err := client.NewClient(ctx, region, profile, accessKey, secretKey, token)
 	if err != nil {
 		return nil, diag.FromErr(err)
 	}
