@@ -69,6 +69,13 @@ func resourceECRRepository() *schema.Resource {
 				Optional: true,
 				Default:  false,
 			},
+			//"tags": {
+			//	Type:     schema.TypeMap,
+			//	Optional: true,
+			//	Elem: &schema.Schema{
+			//		Type: schema.TypeString,
+			//	},
+			//},
 			"use_existing": {
 				Type:             schema.TypeBool,
 				Optional:         true,
@@ -125,6 +132,25 @@ func expandRepositoryEncryptionConfiguration(data []any) *types.EncryptionConfig
 	return config
 }
 
+//func convertTagMapToArray(tagMap map[string]interface{}) []types.Tag {
+//	retVal := []types.Tag{}
+//	for key, value := range tagMap {
+//		retVal = append(retVal, types.Tag{
+//			Key:   aws.String(key),
+//			Value: aws.String(value.(string)),
+//		})
+//	}
+//	return retVal
+//}
+//
+//func convertArrayToTagMap(tags []types.Tag) map[string]string {
+//	retVal := map[string]string{}
+//	for _, tag := range tags {
+//		retVal[aws.ToString(tag.Key)] = aws.ToString(tag.Value)
+//	}
+//	return retVal
+//}
+
 func fillECRRepository(c *ecr.CreateRepositoryInput, d *schema.ResourceData) {
 	c.RepositoryName = aws.String(d.Get("name").(string))
 	c.ImageTagMutability = types.ImageTagMutability(d.Get("image_tag_mutability").(string))
@@ -135,13 +161,18 @@ func fillECRRepository(c *ecr.CreateRepositoryInput, d *schema.ResourceData) {
 		}
 	}
 	c.EncryptionConfiguration = expandRepositoryEncryptionConfiguration(d.Get("encryption_configuration").([]any))
+	//tagsMap, ok := d.GetOk("tags")
+	//if ok {
+	//	c.Tags = convertTagMapToArray(tagsMap.(map[string]interface{}))
+	//}
 }
 
-func fillResourceDataFromECRRepository(c *types.Repository, d *schema.ResourceData) {
+func fillResourceDataFromECRRepository(c *types.Repository /*, tags []types.Tag*/, d *schema.ResourceData) {
 	d.Set("name", c.RepositoryName)
 	d.Set("image_tag_mutability", c.ImageTagMutability)
 	d.Set("image_scanning_configuration", flattenImageScanningConfiguration(c.ImageScanningConfiguration))
 	d.Set("encryption_configuration", flattenRepositoryEncryptionConfiguration(c.EncryptionConfiguration))
+	//d.Set("tags", convertArrayToTagMap(tags))
 	d.Set("arn", c.RepositoryArn)
 	d.Set("registry_id", c.RegistryId)
 	d.Set("repository_url", c.RepositoryUri)
@@ -173,7 +204,12 @@ func resourceECRRepositoryCreate(ctx context.Context, d *schema.ResourceData, m 
 		}
 		repo = resp.Repository
 	}
-	fillResourceDataFromECRRepository(repo, d)
+	//tagResp, err := ecrClient.ListTagsForResource(ctx, &ecr.ListTagsForResourceInput{ResourceArn: repo.RepositoryArn})
+	//if err != nil {
+	//	d.SetId("")
+	//	return diag.FromErr(err)
+	//}
+	fillResourceDataFromECRRepository(repo /*, tagResp.Tags*/, d)
 	d.SetId(aws.ToString(repo.RepositoryName))
 	return diags
 }
@@ -188,7 +224,12 @@ func resourceECRRepositoryRead(ctx context.Context, d *schema.ResourceData, m in
 		return diag.FromErr(err)
 	}
 	repo := resp.Repositories[0]
-	fillResourceDataFromECRRepository(&repo, d)
+	//tagResp, err := ecrClient.ListTagsForResource(ctx, &ecr.ListTagsForResourceInput{ResourceArn: repo.RepositoryArn})
+	//if err != nil {
+	//	d.SetId("")
+	//	return diag.FromErr(err)
+	//}
+	fillResourceDataFromECRRepository(&repo /*, tagResp.Tags*/, d)
 	return diags
 }
 
@@ -196,7 +237,7 @@ func resourceECRRepositoryUpdate(ctx context.Context, d *schema.ResourceData, m 
 	var diags diag.Diagnostics
 	c := m.(*client.Client)
 	ecrClient := ecr.NewFromConfig(c.Config)
-	if d.HasChanges("image_tag_mutability") {
+	if d.HasChange("image_tag_mutability") {
 		input := &ecr.PutImageTagMutabilityInput{
 			ImageTagMutability: types.ImageTagMutability((d.Get("image_tag_mutability").(string))),
 			RegistryId:         aws.String(d.Get("registry_id").(string)),
