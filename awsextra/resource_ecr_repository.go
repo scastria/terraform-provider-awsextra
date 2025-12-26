@@ -2,6 +2,7 @@ package awsextra
 
 import (
 	"context"
+	"errors"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
@@ -189,10 +190,14 @@ func resourceECRRepositoryCreate(ctx context.Context, d *schema.ResourceData, m 
 		// Try to find an existing repository with the given name and return it if found
 		resp, err := ecrClient.DescribeRepositories(ctx, &ecr.DescribeRepositoriesInput{RepositoryNames: []string{name}})
 		if err != nil {
-			d.SetId("")
-			return diag.FromErr(err)
+			var rnf *types.RepositoryNotFoundException
+			if !errors.As(err, &rnf) {
+				d.SetId("")
+				return diag.FromErr(err)
+			}
+		} else {
+			repo = &(resp.Repositories[0])
 		}
-		repo = &(resp.Repositories[0])
 	}
 	if repo == nil {
 		newECRRepository := ecr.CreateRepositoryInput{}
